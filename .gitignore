@@ -1,0 +1,50 @@
+# Checkpoints
+checkpoints/
+*.pt
+*.onnx
+*.mlmodel
+
+# Data (large files)
+data/
+*.wav
+*.flac
+*.mp3
+*.npy
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Environments
+.env
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TensorBoard
+tb_logs/
+runs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Temporary
+*.tmp
+*.log

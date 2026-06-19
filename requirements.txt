@@ -1,0 +1,15 @@
+torch>=2.1.0
+torchaudio>=2.1.0
+speechbrain>=1.0.0
+soundfile>=0.12.1
+librosa>=0.10.0
+numpy>=1.24.0
+pyyaml>=6.0
+tqdm>=4.65.0
+tensorboard>=2.14.0
+pesq>=0.0.4
+pystoi>=0.4.0
+onnx>=1.14.0
+onnxruntime>=1.16.0
+datasets>=2.14.0
+huggingface-hub>=0.17.0
