@@ -185,12 +185,13 @@ class HFSpeechSource:
         
         self._dataset = load_dataset(self.dataset_name, **kwargs)
         
+        try:
+            self._dataset = self._dataset.cast_column(
+                self.audio_column, Audio(sampling_rate=self.sample_rate))
+        except Exception as e:
+            pass
+            
         if not self.streaming:
-            try:
-                self._dataset = self._dataset.cast_column(
-                    self.audio_column, Audio(sampling_rate=self.sample_rate))
-            except Exception:
-                pass
             if self.max_samples and len(self._dataset) > self.max_samples:
                 self._dataset = self._dataset.select(range(self.max_samples))
             print(f"[HFSpeech] Loaded {len(self._dataset)} samples")
@@ -268,12 +269,13 @@ class HFNoiseSource:
         
         self._dataset = load_dataset(self.dataset_name, **kwargs)
         
+        try:
+            self._dataset = self._dataset.cast_column(
+                self.audio_column, Audio(sampling_rate=self.sample_rate))
+        except Exception:
+            pass
+            
         if not self.streaming:
-            try:
-                self._dataset = self._dataset.cast_column(
-                    self.audio_column, Audio(sampling_rate=self.sample_rate))
-            except Exception:
-                pass
             if self.max_samples and len(self._dataset) > self.max_samples:
                 self._dataset = self._dataset.select(range(self.max_samples))
             print(f"[HFNoise] Loaded {len(self._dataset)} noise samples")
