@@ -42,7 +42,7 @@ data:
   
   hf_speech:
     # ═══ Arabic (Primary Focus) ═══
-    - name: "danavery/urbansound8K"
+    - name: "MohamedRashad/MASC-Arabic"
       subset: "default"
       audio_column: "audio"
       streaming: true
@@ -69,7 +69,7 @@ data:
 
     # ═══ Multilingual Expansion ═══
     - name: "MohamedRashad/arabic-english-code-switching"
-      subset: "default"
+      subset: "train"
       audio_column: "audio"
       streaming: true
     
