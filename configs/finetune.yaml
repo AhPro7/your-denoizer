@@ -42,8 +42,8 @@ data:
   
   hf_speech:
     # ═══ Arabic (Primary Focus) ═══
-    - name: "mozilla-foundation/common_voice_17_0"
-      subset: "ar"
+    - name: "danavery/urbansound8K"
+      subset: "default"
       audio_column: "audio"
       streaming: true
 
@@ -57,22 +57,21 @@ data:
 
     # ═══ More Arabic Dialects ═══
     # Uncomment to add:
-    # - name: "google/fleurs"
-    #   subset: "ar_eg"                 # Egyptian Arabic
-    #   audio_column: "audio"
-    #   streaming: true
+    - name: "google/fleurs"
+      subset: "ar_eg"                 # Egyptian Arabic
+      audio_column: "audio"
+      streaming: true
     
-    # - name: "google/fleurs"
-    #   subset: "ar_sa"                 # Saudi Arabic
-    #   audio_column: "audio"
-    #   streaming: true
+    - name: "google/fleurs"
+      subset: "ar_sa"                 # Saudi Arabic
+      audio_column: "audio"
+      streaming: true
 
     # ═══ Multilingual Expansion ═══
-    # - name: "mozilla-foundation/common_voice_17_0"
-    #   subset: "fr"
-    #   audio_column: "audio"
-    #   speaker_column: "client_id"
-    #   streaming: true
+    - name: "MohamedRashad/arabic-english-code-switching"
+      subset: "default"
+      audio_column: "audio"
+      streaming: true
     
     # - name: "mozilla-foundation/common_voice_17_0"
     #   subset: "de"
@@ -111,17 +110,17 @@ data:
       streaming: true
 
     # UrbanSound8K: car horns, sirens, engines, street music, jackhammers
-    # - name: "danavery/urbansound8K"
-    #   audio_column: "audio"
-    #   label_column: "class"
-    #   category: "urban"
-    #   streaming: false
+    - name: "danavery/urbansound8K"
+      audio_column: "audio"
+      label_column: "class"
+      category: "urban"
+      streaming: false
     
     # FSD50K: 50K Freesound clips — huge variety
-    # - name: "google/fsd50k"
-    #   audio_column: "audio"
-    #   category: "environment"
-    #   streaming: true
+    - name: "google/fsd50k"
+      audio_column: "audio"
+      category: "environment"
+      streaming: true
 
   # ===========================================================
   # Local Speech & Noise (if downloaded to disk)
