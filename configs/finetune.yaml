@@ -49,8 +49,8 @@ data:
 
     # ═══ English (Foundation) ═══
     - name: "openslr/librispeech_asr"
-      subset: "train.clean.100"
-      split: "train.clean.100"
+      subset: "clean"
+      split: "train.100"
       audio_column: "audio"
       streaming: false
       max_samples: 30000
