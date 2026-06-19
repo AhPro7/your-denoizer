@@ -48,7 +48,7 @@ def get_device():
     if torch.cuda.is_available():
         device = torch.device("cuda")
         gpu_name = torch.cuda.get_device_name()
-        vram = torch.cuda.get_device_properties(0).total_mem / 1024**3
+        vram = torch.cuda.get_device_properties(0).total_memory / 1024**3
         print(f"[Train] Using CUDA: {gpu_name} ({vram:.1f} GB)")
     elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         device = torch.device("mps")
