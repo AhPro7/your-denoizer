@@ -1,50 +1,55 @@
 # ============================================================
-# Your Denoizer — Training Configuration
+# 🎤 Your Denoizer — Training Configuration
 # ============================================================
-# Fine-tune Conv-TasNet-Tiny for Target Speaker Extraction
+# Conv-TasNet-Tiny for Target Speaker Extraction
 # Multilingual: Arabic-focused + English + more
+# Noise: MUSAN + UrbanSound + Car/Street + Reverb
 # ============================================================
 
 experiment_name: "tse_multilingual_arabic"
 
 # ============================================================
-# Model Configuration
+# Model
 # ============================================================
 model:
-  size: "tiny"              # nano / tiny / small / standard
+  size: "tiny"              # nano(0.5M) / tiny(1.3M) / small(2.5M) / standard(5.1M)
   speaker_dim: 192          # ECAPA-TDNN embedding dimension
 
 # ============================================================
-# Data Configuration
+# Data
 # ============================================================
 data:
   sample_rate: 16000
   segment_length: 64000     # 4 seconds at 16kHz
-  batch_size: 16            # Adjust based on GPU VRAM (T4: 16, A100: 32)
-  num_workers: 4
+  batch_size: 16            # T4: 16, A100: 32, CPU: 4
+  num_workers: 4            # Colab: 2, local GPU: 4-8
   samples_per_epoch: 20000  # Virtual epoch size
   val_samples: 2000         # Validation samples per epoch
   
-  # ---- Mixing parameters ----
-  num_interferers: 2        # Max number of interfering speakers
-  sir_range: [-5, 5]        # Signal-to-Interference Ratio (dB) — interferer can be LOUDER
+  # ---- Mixing Parameters ----
+  num_interferers: 2        # 1-3 interfering speakers
+  sir_range: [-5, 5]        # Signal-to-Interference Ratio (dB) — negative = interferer LOUDER
   snr_range: [5, 20]        # Signal-to-Noise Ratio (dB)
-  noise_prob: 0.7           # Probability of adding environmental noise
-  rir_prob: 0.3             # Probability of adding reverb
-  speed_perturb_prob: 0.3   # Probability of speed perturbation
+  noise_prob: 0.7           # 70% of samples get environmental noise
+  rir_prob: 0.3             # 30% of samples get room reverb
+  speed_perturb_prob: 0.3   # 30% of samples get speed/pitch change
+
+  # ===========================================================
+  # HuggingFace Speech Datasets
+  # ===========================================================
+  # Each entry needs: name, audio_column, speaker_column
+  # Set streaming: true for large datasets (saves disk space)
+  # Add/remove freely — the loader handles everything!
   
-  # ---- HuggingFace Speech Datasets ----
-  # Add as many as you want! The loader handles any audio column name.
-  # Set streaming: true for large datasets you don't want to download fully.
   hf_speech:
-    # === Arabic (Primary Focus) ===
+    # ═══ Arabic (Primary Focus) ═══
     - name: "mozilla-foundation/common_voice_17_0"
       subset: "ar"
       audio_column: "audio"
       speaker_column: "client_id"
       streaming: true
-    
-    # === English (Foundation) ===
+
+    # ═══ English (Foundation) ═══
     - name: "openslr/librispeech_asr"
       subset: "train.clean.100"
       split: "train.clean.100"
@@ -53,12 +58,12 @@ data:
       streaming: false
       max_samples: 30000
 
-    # === More Arabic ===
-    # Uncomment these as needed:
+    # ═══ More Arabic Dialects ═══
+    # Uncomment to add:
     # - name: "google/fleurs"
     #   subset: "ar_eg"                 # Egyptian Arabic
     #   audio_column: "audio"
-    #   speaker_column: "id"            # FLEURS has numeric IDs
+    #   speaker_column: "id"
     #   streaming: true
     
     # - name: "google/fleurs"
@@ -66,69 +71,77 @@ data:
     #   audio_column: "audio"
     #   speaker_column: "id"
     #   streaming: true
-    
-    # === Multilingual Expansion ===
+
+    # ═══ Multilingual Expansion ═══
     # - name: "mozilla-foundation/common_voice_17_0"
-    #   subset: "fr"                    # French
+    #   subset: "fr"
     #   audio_column: "audio"
     #   speaker_column: "client_id"
     #   streaming: true
     
     # - name: "mozilla-foundation/common_voice_17_0"
-    #   subset: "de"                    # German
+    #   subset: "de"
     #   audio_column: "audio"
     #   speaker_column: "client_id"
     #   streaming: true
     
     # - name: "mozilla-foundation/common_voice_17_0"
-    #   subset: "zh-CN"                 # Chinese
+    #   subset: "zh-CN"
     #   audio_column: "audio"
     #   speaker_column: "client_id"
     #   streaming: true
 
-    # === VoxCeleb (Speaker Diversity) ===
+    # ═══ Speaker Diversity ═══
     # - name: "ProgramComputer/voxceleb"
     #   subset: "vox1"
     #   audio_column: "audio"
     #   speaker_column: "speaker_id"
     #   streaming: true
-
-  # ---- HuggingFace Noise Datasets ----
-  hf_noise:
-    # MUSAN noise subset (background noise, babble, music)
-    # - name: "flozi00/MUSAN-Noise"
-    #   audio_column: "audio"
-    #   category: "noise"
-    #   streaming: true
     
-    # Environmental Sound Classification (cars, sirens, street, etc.)
+    # - name: "edinburghcstr/vctk"
+    #   audio_column: "audio"
+    #   speaker_column: "speaker_id"
+    #   streaming: false
+
+  # ===========================================================
+  # HuggingFace Noise Datasets
+  # ===========================================================
+  # These are ACTIVE (not commented) — noise makes the model robust!
+  
+  hf_noise:
+    # MUSAN: background noise, babble, music, machinery
+    - name: "flozi00/MUSAN-Noise"
+      audio_column: "audio"
+      category: "noise"
+      streaming: true
+
+    # UrbanSound8K: car horns, sirens, engines, street music, jackhammers
     # - name: "danavery/urbansound8K"
     #   audio_column: "audio"
     #   label_column: "class"
     #   category: "urban"
     #   streaming: false
     
-    # FSD50K (Freesound — huge variety of real-world sounds)
+    # FSD50K: 50K Freesound clips — huge variety
     # - name: "google/fsd50k"
     #   audio_column: "audio"
     #   category: "environment"
     #   streaming: true
 
-  # ---- Local Speech Directories ----
-  # Point these to downloaded datasets on your machine
-  local_speech:
-    # librispeech: "/path/to/LibriSpeech/train-clean-100"
-    # voxceleb: "/path/to/VoxCeleb1/wav"
-    # arabic_custom: "/path/to/my_arabic_speech_data"
+  # ===========================================================
+  # Local Speech & Noise (if downloaded to disk)
+  # ===========================================================
+  local_speech: {}
+    # librispeech: "/data/LibriSpeech/train-clean-100"
+    # voxceleb: "/data/VoxCeleb1/wav"
 
-  # ---- Local Noise Directories ----
-  local_noise:
-    # musan: "/path/to/musan"
-    # demand: "/path/to/DEMAND"
-    # rir: "/path/to/RIRS_NOISES/simulated_rirs"
+  local_noise: {}
+    # musan: "/data/musan"
+    # demand: "/data/DEMAND"           # car, street, cafe, metro noise
+    # rir: "/data/RIRS_NOISES/simulated_rirs"
 
 # ============================================================
-# Training Configuration
+# Training
 # ============================================================
 training:
   epochs: 50
@@ -137,20 +150,26 @@ training:
   warmup_epochs: 3
   patience: 10              # Early stopping patience
   
-  loss: "si_snr"            # "si_snr" or "combined"
-  si_snr_weight: 1.0        # Weight for SI-SNR loss (if combined)
-  stft_weight: 0.1          # Weight for STFT loss (if combined)
+  loss: "combined"          # "si_snr" or "combined" (SI-SNR + STFT)
+  si_snr_weight: 1.0
+  stft_weight: 0.1
   
-  mixed_precision: true     # FP16 training (CUDA only, ~2x speedup)
+  mixed_precision: true     # FP16 (CUDA only, ~2x speedup)
   
-  output_dir: "checkpoints"
-  save_every: 10            # Save checkpoint every N epochs
+  # ---- Checkpointing ----
+  output_dir: "experiments" # Root output directory
+  save_every: 5             # Save periodic checkpoint every N epochs
+  
+  # ---- TensorBoard Audio Logging ----
+  audio_log_every: 5        # Log audio samples every N epochs
+  num_audio_samples: 4      # Number of mixture/target/estimated triplets to log
+  log_interval: 50          # Log training metrics every N steps
 
 # ============================================================
-# Inference Configuration
+# Inference
 # ============================================================
 inference:
-  device: "cpu"             # Always CPU for M4 Mac inference
+  device: "cpu"             # Always CPU for M4 Mac
   format: "onnx"            # "pytorch", "onnx", or "coreml"
   chunk_size: 64000         # 4 seconds per chunk
   overlap: 0.5              # 50% overlap for overlap-add
