@@ -424,7 +424,7 @@ def train(config_path: str, resume_path: str = None):
     
     # ===== Build DataLoaders =====
     print("[Data] Building training dataloader...")
-    train_loader = create_tse_dataloader(config, speaker_encoder=None)
+    train_loader = create_tse_dataloader(config)
     
     val_config = config.copy()
     val_data = val_config.get('data', {}).copy()
@@ -432,7 +432,7 @@ def train(config_path: str, resume_path: str = None):
     val_config['data'] = val_data
     
     print("[Data] Building validation dataloader...")
-    val_loader = create_tse_dataloader(val_config, speaker_encoder=None)
+    val_loader = create_tse_dataloader(val_config)
     
     # ===== Loss =====
     loss_type = train_cfg.get('loss', 'si_snr')
