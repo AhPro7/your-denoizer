@@ -62,7 +62,12 @@ data:
       streaming: true
     
     - name: "google/fleurs"
-      subset: "ar_sa"                 # Saudi Arabic
+      subset: "fr_fr"                 # French
+      audio_column: "audio"
+      streaming: true
+      
+    - name: "google/fleurs"
+      subset: "es_419"                # Spanish
       audio_column: "audio"
       streaming: true
 
