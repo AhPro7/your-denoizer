@@ -52,8 +52,7 @@ data:
       subset: "clean"
       split: "train.100"
       audio_column: "audio"
-      streaming: false
-      max_samples: 30000
+      streaming: true
 
     # ═══ More Arabic Dialects ═══
     # Uncomment to add:
