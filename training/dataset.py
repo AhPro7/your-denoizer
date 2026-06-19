@@ -218,8 +218,7 @@ class HFSpeechSource:
     def num_samples(self) -> int:
         self._load()
         if self.streaming:
-            self._fill_buffer()
-            return len(self._buffer)
+            return 10000
         return len(self._dataset)
 
 
