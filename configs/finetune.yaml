@@ -73,7 +73,7 @@ data:
 
     # ═══ Multilingual Expansion ═══
     - name: "MohamedRashad/arabic-english-code-switching"
-      subset: "train"
+      subset: "default"
       audio_column: "audio"
       streaming: true
     
