@@ -122,7 +122,7 @@ def test_gpu():
     
     if torch.cuda.is_available():
         print(f"  ✅ CUDA available: {torch.cuda.get_device_name()}")
-        print(f"     VRAM: {torch.cuda.get_device_properties(0).total_mem / 1024**3:.1f} GB")
+        print(f"     VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
     elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         print(f"  ✅ Apple MPS available")
     else:
