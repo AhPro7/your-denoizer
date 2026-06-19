@@ -6,16 +6,14 @@ Uses overlap-add for processing long audio files in chunks.
 
 Usage:
     python -m inference.extract \
-        --mixture input.wav \
-        --enrollment enrollment.wav \
-        --output extracted.wav \
+        --noisy input_noisy.wav \
+        --output clean_output.wav \
         --checkpoint checkpoints/best.pt
     
     # With ONNX (faster on CPU):
     python -m inference.extract \
-        --mixture input.wav \
-        --enrollment enrollment.wav \
-        --output extracted.wav \
+        --noisy input_noisy.wav \
+        --output clean_output.wav \
         --onnx checkpoints/exported/separator.onnx
 """
 
@@ -31,8 +29,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from models.separator import ConvTasNetTSE
-from models.speaker_encoder import SpeakerEncoder
+from models.separator import ConvTasNet
 
 
 def load_audio(path: str, target_sr: int = 16000) -> torch.Tensor:
@@ -45,7 +42,7 @@ def load_audio(path: str, target_sr: int = 16000) -> torch.Tensor:
     return waveform.squeeze(0)  # (T,)
 
 
-def overlap_add_process(model, mixture: torch.Tensor, speaker_emb: torch.Tensor,
+def overlap_add_process(model, noisy: torch.Tensor,
                          chunk_size: int = 64000, overlap: float = 0.5,
                          device: str = "cpu", use_onnx: bool = False,
                          onnx_session=None) -> torch.Tensor:
@@ -55,9 +52,8 @@ def overlap_add_process(model, mixture: torch.Tensor, speaker_emb: torch.Tensor,
     and reconstructs the full output using overlap-add with Hann windowing.
     
     Args:
-        model: ConvTasNetTSE model (or None if using ONNX)
-        mixture: (T,) input mixture waveform
-        speaker_emb: (192,) target speaker embedding
+        model: ConvTasNet model (or None if using ONNX)
+        noisy: (T,) input noisy waveform
         chunk_size: Size of each processing chunk in samples
         overlap: Overlap ratio between chunks (0.0 - 0.9)
         device: PyTorch device
@@ -65,9 +61,9 @@ def overlap_add_process(model, mixture: torch.Tensor, speaker_emb: torch.Tensor,
         onnx_session: ONNX InferenceSession (required if use_onnx=True)
     
     Returns:
-        output: (T,) extracted target speaker waveform
+        output: (T,) denoised waveform
     """
-    T = mixture.shape[0]
+    T = noisy.shape[0]
     hop_size = int(chunk_size * (1 - overlap))
     
     # Pad to fit complete chunks
@@ -75,7 +71,7 @@ def overlap_add_process(model, mixture: torch.Tensor, speaker_emb: torch.Tensor,
     padded_length = (num_chunks - 1) * hop_size + chunk_size
     
     if padded_length > T:
-        mixture = F.pad(mixture, (0, padded_length - T))
+        noisy = F.pad(noisy, (0, padded_length - T))
     
     # Hann window for smooth overlap-add
     window = torch.hann_window(chunk_size)
@@ -86,25 +82,22 @@ def overlap_add_process(model, mixture: torch.Tensor, speaker_emb: torch.Tensor,
     for i in range(num_chunks):
         start = i * hop_size
         end = start + chunk_size
-        chunk = mixture[start:end]
+        chunk = noisy[start:end]
         
         if use_onnx and onnx_session:
             # ONNX inference
             chunk_np = chunk.unsqueeze(0).unsqueeze(0).numpy()  # (1, 1, chunk_size)
-            emb_np = speaker_emb.unsqueeze(0).numpy()            # (1, 192)
             
             result = onnx_session.run(None, {
-                'mixture': chunk_np,
-                'speaker_embedding': emb_np,
+                'noisy': chunk_np,
             })
             extracted = torch.tensor(result[0]).squeeze()
         else:
             # PyTorch inference
             with torch.no_grad():
                 chunk_input = chunk.unsqueeze(0).to(device)       # (1, T)
-                emb_input = speaker_emb.unsqueeze(0).to(device)   # (1, 192)
                 
-                extracted = model(chunk_input, emb_input)
+                extracted = model(chunk_input)
                 extracted = extracted.squeeze().cpu()
         
         # Ensure correct length
@@ -124,8 +117,7 @@ def overlap_add_process(model, mixture: torch.Tensor, speaker_emb: torch.Tensor,
 
 
 def extract(
-    mixture_path: str,
-    enrollment_paths: list,
+    noisy_path: str,
     output_path: str,
     checkpoint_path: str = None,
     onnx_path: str = None,
@@ -134,12 +126,11 @@ def extract(
     overlap: float = 0.5,
     device: str = "cpu",
 ):
-    """Extract target speaker from mixture audio.
+    """Denoise audio using ConvTasNet.
     
     Args:
-        mixture_path: Path to mixture audio file
-        enrollment_paths: List of paths to enrollment audio files
-        output_path: Path to save extracted audio
+        noisy_path: Path to noisy audio file
+        output_path: Path to save clean audio
         checkpoint_path: Path to PyTorch checkpoint (.pt)
         onnx_path: Path to ONNX model (overrides checkpoint if provided)
         model_size: Model config name
@@ -148,27 +139,16 @@ def extract(
         device: PyTorch device
     """
     print(f"\n{'='*60}")
-    print(f"  Your Denoizer — Extraction")
+    print(f"  Your Denoizer — Speech Enhancement")
     print(f"{'='*60}")
     
     # 1. Load and preprocess mixture
-    print(f"\n[1/4] Loading mixture: {mixture_path}")
-    mixture = load_audio(mixture_path)
-    duration = len(mixture) / 16000
-    print(f"  Duration: {duration:.1f}s ({len(mixture):,} samples)")
+    print(f"\n[1/3] Loading noisy audio: {noisy_path}")
+    noisy = load_audio(noisy_path)
+    duration = len(noisy) / 16000
+    print(f"  Duration: {duration:.1f}s ({len(noisy):,} samples)")
     
-    # 2. Compute speaker embedding from enrollment
-    print(f"\n[2/4] Computing speaker embedding from {len(enrollment_paths)} enrollment clip(s)")
-    encoder = SpeakerEncoder(device=device)
-    
-    if len(enrollment_paths) == 1:
-        speaker_emb = encoder.encode_file(enrollment_paths[0])
-    else:
-        speaker_emb = encoder.encode_enrollment(enrollment_paths)
-    
-    print(f"  Embedding shape: {speaker_emb.shape}")
-    
-    # 3. Load model
+    # 2. Load model
     use_onnx = onnx_path is not None
     onnx_session = None
     model = None
@@ -182,8 +162,8 @@ def extract(
         )
         print(f"  ONNX Runtime loaded (CPU)")
     else:
-        print(f"\n[3/4] Loading PyTorch model: {checkpoint_path}")
-        model = ConvTasNetTSE.from_config(model_size)
+        print(f"\n[2/3] Loading PyTorch model: {checkpoint_path}")
+        model = ConvTasNet.from_config(model_size, speaker_dim=0)
         
         if checkpoint_path:
             checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -193,14 +173,13 @@ def extract(
         model.eval()
         print(f"  Model loaded ({model._total_params:,} params)")
     
-    # 4. Extract
-    print(f"\n[4/4] Extracting target speaker...")
+    # 3. Extract
+    print(f"\n[3/3] Denoising audio...")
     start_time = time.perf_counter()
     
     output = overlap_add_process(
         model=model,
-        mixture=mixture,
-        speaker_emb=speaker_emb.cpu(),
+        noisy=noisy,
         chunk_size=chunk_size,
         overlap=overlap,
         device=device,
@@ -221,11 +200,9 @@ def extract(
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Extract target speaker from mixture')
-    parser.add_argument('--mixture', type=str, required=True, help='Path to mixture audio')
-    parser.add_argument('--enrollment', type=str, nargs='+', required=True, 
-                        help='Path(s) to enrollment audio clips')
-    parser.add_argument('--output', type=str, default='extracted.wav', help='Output path')
+    parser = argparse.ArgumentParser(description='Denoise audio')
+    parser.add_argument('--noisy', type=str, required=True, help='Path to noisy audio')
+    parser.add_argument('--output', type=str, default='clean.wav', help='Output path')
     parser.add_argument('--checkpoint', type=str, default=None, help='PyTorch checkpoint path')
     parser.add_argument('--onnx', type=str, default=None, help='ONNX model path')
     parser.add_argument('--model-size', type=str, default='tiny', help='Model config name')
@@ -236,8 +213,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     extract(
-        mixture_path=args.mixture,
-        enrollment_paths=args.enrollment,
+        noisy_path=args.noisy,
         output_path=args.output,
         checkpoint_path=args.checkpoint,
         onnx_path=args.onnx,

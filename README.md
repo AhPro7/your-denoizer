@@ -2,9 +2,10 @@
 
 # 🎤 Your Denoizer
 
-### Personalized Voice Isolation via Target Speaker Extraction
+### Phase 1: Robust Speech Enhancement / Denoising
+### Phase 2: Personalized Voice Isolation (Future)
 
-*Give it a 10-second clip of your voice. It extracts only YOU from any recording — suppressing all other speakers, car noise, street sounds, crowd chatter, and music.*
+*A lightweight, CPU-friendly denoiser that removes car noise, street sounds, crowd chatter, and music. Extracts clean speech from noisy environments.*
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org)
@@ -20,20 +21,21 @@
 ```
   ┌──────────────────────────────────────────────────────────────────┐
   │                                                                  │
-  │   Enrollment (once)                                              │
-  │   ──────────────────                                             │
-  │   Your voice clips ──→ ECAPA-TDNN ──→ Speaker Embedding (192d)  │
-  │   (10-30 seconds)       (frozen)        (your voiceprint)        │
+  │   Phase 1: Speech Enhancement (Current)                          │
+  │   ─────────────────────────────────────                          │
+  │   Noisy mixture ──→ Encoder ──→ TCN ──→ Decoder ──→ Clean Speech │
+  │   (any length)       (1D Conv)  (mask)   (1D Conv)               │
+  │                                                                  │
+  │   Phase 2: Target Speaker Extraction (Future)                    │
+  │   ───────────────────────────────────────────                    │
+  │   Your voice clips ──→ ECAPA-TDNN ──→ Speaker Embedding (192d)   │
   │                                              │                   │
-  │   Extraction (per file)                      ▼                   │
-  │   ─────────────────────                                          │
-  │   Noisy mixture ──→ Encoder ──→ FiLM ──→ TCN ──→ Decoder ──→ 🔊│
-  │   (any length)       (1D Conv)  (cond)  (mask)   (1D Conv)      │
+  │   Noisy mixture ──→ Encoder ──→ FiLM ──→ TCN ──→ Decoder ──→ 🔊  │
   │                                                                  │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
-The system uses **Conv-TasNet** with **FiLM conditioning** — the speaker embedding tells the separator *which* voice to extract. Everything else (other speakers, car engines, street noise, music) is suppressed.
+The system currently uses **Conv-TasNet** for robust denoising. It suppresses environmental noise (car engines, street noise, music) and enhances all speech. In Phase 2, **FiLM conditioning** will be enabled to extract *only* a specific target voice.
 
 ## ⚡ Key Features
 
@@ -42,7 +44,7 @@ The system uses **Conv-TasNet** with **FiLM conditioning** — the speaker embed
 | **🔬 Tiny Model** | Conv-TasNet-Tiny: 1.3M params, ~5MB, real-time on M4 CPU |
 | **🌍 Multilingual** | Arabic-focused + English + extensible to any language via HuggingFace |
 | **🚗 Noise-Robust** | Trained with MUSAN, DEMAND (car/street/cafe), UrbanSound8K, RIR reverb |
-| **🎯 Speaker-Conditioned** | FiLM conditioning on ECAPA-TDNN embeddings — extracts *only* the target |
+| **🎯 Ready for Phase 2** | Architecture already includes FiLM conditioning for future personalization |
 | **📊 TensorBoard Audio** | Listen to mixture/target/estimated during training — hear your model learn! |
 | **🤗 HuggingFace Native** | Stream any speech/noise dataset — configurable audio column names |
 | **💾 Robust Checkpoints** | Atomic saves, best-loss + best-SI-SNR + periodic + last checkpoints |
@@ -90,19 +92,13 @@ python -m training.train --config configs/finetune.yaml --resume experiments/*/c
 tensorboard --logdir experiments/
 ```
 
-### Enroll & Extract
+### Denoise Audio
 
 ```bash
-# Step 1: Create your voiceprint
-python -m inference.enroll \
-    --audio my_clip1.wav my_clip2.wav my_clip3.wav \
-    --output my_voiceprint.npy
-
-# Step 2: Extract your voice from any recording
+# Extract clean speech from a noisy recording
 python -m inference.extract \
-    --mixture noisy_meeting.wav \
-    --enrollment my_clip1.wav \
-    --output my_voice_only.wav \
+    --noisy noisy_meeting.wav \
+    --output clean_speech.wav \
     --checkpoint experiments/*/checkpoints/best_loss.pt
 ```
 
@@ -210,12 +206,12 @@ experiments/tse_multilingual_arabic_20260620_001200/
 
 ## 🗺️ Roadmap
 
-- [x] Conv-TasNet-Tiny with FiLM speaker conditioning
+- [x] Phase 1: Conv-TasNet-Tiny Speech Enhancement
 - [x] HuggingFace dataset pipeline (speech + noise, streaming)
 - [x] TensorBoard audio logging
 - [x] ONNX export for M4 CPU
-- [ ] Phase 2: Personal voice cloning (F5-TTS)
-- [ ] Phase 3: Per-user fine-tuning (3-5 min of your voice)
+- [ ] Phase 2: Target Speaker Extraction (FiLM conditioning)
+- [ ] Phase 3: Personal voice cloning (F5-TTS)
 - [ ] Phase 4: CoreML export for Apple Neural Engine
 
 ## 📜 License

@@ -12,21 +12,20 @@ import torch
 
 def test_model():
     """Test model forward pass with all configurations."""
-    from models.separator import ConvTasNetTSE, build_model
+    from models.separator import ConvTasNet
     
     print("=" * 60)
     print("  Model Architecture Test")
     print("=" * 60)
     
     for config_name in ['nano', 'tiny', 'small', 'standard']:
-        model = ConvTasNetTSE.from_config(config_name)
+        model = ConvTasNet.from_config(config_name, speaker_dim=0)
         
         batch_size = 2
         mixture = torch.randn(batch_size, 1, 64000)   # 4s at 16kHz
-        speaker_emb = torch.randn(batch_size, 192)     # ECAPA-TDNN
         
         with torch.no_grad():
-            output = model(mixture, speaker_emb)
+            output = model(mixture)
         
         total_params = sum(p.numel() for p in model.parameters())
         size_mb = total_params * 4 / 1024 / 1024
@@ -67,7 +66,7 @@ def test_loss():
 def test_dataset():
     """Test dataset with a local dummy setup."""
     from training.dataset import (
-        HFSpeechSource, HFNoiseSource, TSEDataset,
+        HFSpeechSource, HFNoiseSource, SpeechEnhancementDataset,
         LocalSpeechIndex, LocalNoiseIndex,
         rms_normalize, mix_at_snr, random_segment
     )

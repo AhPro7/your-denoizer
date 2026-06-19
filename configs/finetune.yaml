@@ -1,8 +1,8 @@
 # ============================================================
 # 🎤 Your Denoizer — Training Configuration
 # ============================================================
-# Conv-TasNet-Tiny for Target Speaker Extraction
-# Multilingual: Arabic-focused + English + more
+# Phase 1: Speech Enhancement (Denoising)
+# Conv-TasNet-Tiny (Enhancement Mode)
 # Noise: MUSAN + UrbanSound + Car/Street + Reverb
 # ============================================================
 
@@ -13,7 +13,7 @@ experiment_name: "tse_multilingual_arabic"
 # ============================================================
 model:
   size: "tiny"              # nano(0.5M) / tiny(1.3M) / small(2.5M) / standard(5.1M)
-  speaker_dim: 192          # ECAPA-TDNN embedding dimension
+  speaker_dim: 0            # 0 = Enhancement mode (no speaker conditioning)
 
 # ============================================================
 # Data
@@ -27,10 +27,8 @@ data:
   val_samples: 2000         # Validation samples per epoch
   
   # ---- Mixing Parameters ----
-  num_interferers: 2        # 1-3 interfering speakers
-  sir_range: [-5, 5]        # Signal-to-Interference Ratio (dB) — negative = interferer LOUDER
-  snr_range: [5, 20]        # Signal-to-Noise Ratio (dB)
-  noise_prob: 0.7           # 70% of samples get environmental noise
+  snr_range: [3, 20]        # Noise is ALWAYS quieter than speech (positive SNR)
+  noise_prob: 0.8           # 80% of samples get environmental noise
   rir_prob: 0.3             # 30% of samples get room reverb
   speed_perturb_prob: 0.3   # 30% of samples get speed/pitch change
 

@@ -172,16 +172,15 @@ def log_audio_samples(writer, model, val_loader, device, epoch,
             if logged >= num_samples:
                 break
             
-            mixture = batch['mixture'].to(device)
-            target = batch['target'].to(device)
-            enrollment = batch['enrollment'].to(device)
+            mixture = batch['noisy'].to(device)
+            target = batch['clean'].to(device)
             
             if use_amp and device.type == 'cuda':
                 from torch.cuda.amp import autocast
                 with autocast():
-                    estimated = model(mixture, enrollment)
+                    estimated = model(mixture)
             else:
-                estimated = model(mixture, enrollment)
+                estimated = model(mixture)
             
             # Log each sample in the batch
             batch_size = min(mixture.shape[0], num_samples - logged)
@@ -248,9 +247,8 @@ def train_one_epoch(model, dataloader, criterion, optimizer, scheduler,
     pbar = tqdm(dataloader, desc=f"Epoch {epoch}", leave=True)
     
     for batch_idx, batch in enumerate(pbar):
-        mixture = batch['mixture'].to(device)        # (B, T)
-        target = batch['target'].to(device)           # (B, T)
-        enrollment = batch['enrollment'].to(device)   # (B, 192)
+        mixture = batch['noisy'].to(device)        # (B, T)
+        target = batch['clean'].to(device)           # (B, T)
         
         optimizer.zero_grad(set_to_none=True)  # Slightly faster than zero_grad()
         
@@ -258,7 +256,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, scheduler,
         if use_amp and device.type == 'cuda':
             from torch.cuda.amp import autocast
             with autocast():
-                estimated = model(mixture, enrollment)
+                estimated = model(mixture)
                 
                 if isinstance(criterion, CombinedLoss):
                     losses = criterion(estimated, target)
@@ -274,7 +272,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, scheduler,
             scaler.step(optimizer)
             scaler.update()
         else:
-            estimated = model(mixture, enrollment)
+            estimated = model(mixture)
             
             if isinstance(criterion, CombinedLoss):
                 losses = criterion(estimated, target)
@@ -335,14 +333,13 @@ def validate(model, dataloader, criterion, device, use_amp=True):
     num_batches = 0
     
     for batch in tqdm(dataloader, desc="Validating", leave=False):
-        mixture = batch['mixture'].to(device)
-        target = batch['target'].to(device)
-        enrollment = batch['enrollment'].to(device)
+        mixture = batch['noisy'].to(device)
+        target = batch['clean'].to(device)
         
         if use_amp and device.type == 'cuda':
             from torch.cuda.amp import autocast
             with autocast():
-                estimated = model(mixture, enrollment)
+                estimated = model(mixture)
                 if isinstance(criterion, CombinedLoss):
                     losses = criterion(estimated, target)
                     loss = losses['loss']
@@ -351,7 +348,7 @@ def validate(model, dataloader, criterion, device, use_amp=True):
                     loss = criterion(estimated, target)
                     si_snr_val = -loss.item()
         else:
-            estimated = model(mixture, enrollment)
+            estimated = model(mixture)
             if isinstance(criterion, CombinedLoss):
                 losses = criterion(estimated, target)
                 loss = losses['loss']
@@ -416,7 +413,7 @@ def train(config_path: str, resume_path: str = None):
     
     # ===== Build Model =====
     model_size = model_cfg.get('size', 'tiny')
-    speaker_dim = model_cfg.get('speaker_dim', 192)
+    speaker_dim = model_cfg.get('speaker_dim', 0)
     
     model = build_model(config_name=model_size, speaker_dim=speaker_dim)
     model = model.to(device)
@@ -498,8 +495,11 @@ def train(config_path: str, resume_path: str = None):
         # Log model graph
         try:
             dummy_mix = torch.randn(1, 1, 64000).to(device)
-            dummy_emb = torch.randn(1, speaker_dim).to(device)
-            writer.add_graph(model, (dummy_mix, dummy_emb))
+            if speaker_dim > 0:
+                dummy_emb = torch.randn(1, speaker_dim).to(device)
+                writer.add_graph(model, (dummy_mix, dummy_emb))
+            else:
+                writer.add_graph(model, dummy_mix)
         except Exception:
             pass  # Graph logging may fail for complex models
         
