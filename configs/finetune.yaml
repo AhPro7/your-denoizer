@@ -29,13 +29,14 @@ data:
   # ---- Mixing Parameters ----
   snr_range: [3, 20]        # Noise is ALWAYS quieter than speech (positive SNR)
   noise_prob: 0.8           # 80% of samples get environmental noise
-  rir_prob: 0.3             # 30% of samples get room reverb
-  speed_perturb_prob: 0.3   # 30% of samples get speed/pitch change
+  rir_prob: 0.5             # 30% of samples get room reverb
+  speed_perturb_prob: 0.5   # 30% of samples get speed/pitch change
 
   # ===========================================================
   # HuggingFace Speech Datasets
   # ===========================================================
-  # Each entry needs: name, audio_column, speaker_column
+  # ===========================================================
+  # Each entry needs: name, audio_column
   # Set streaming: true for large datasets (saves disk space)
   # Add/remove freely — the loader handles everything!
   
@@ -44,7 +45,6 @@ data:
     - name: "mozilla-foundation/common_voice_17_0"
       subset: "ar"
       audio_column: "audio"
-      speaker_column: "client_id"
       streaming: true
 
     # ═══ English (Foundation) ═══
@@ -52,7 +52,6 @@ data:
       subset: "train.clean.100"
       split: "train.clean.100"
       audio_column: "audio"
-      speaker_column: "speaker_id"
       streaming: false
       max_samples: 30000
 
@@ -61,13 +60,11 @@ data:
     # - name: "google/fleurs"
     #   subset: "ar_eg"                 # Egyptian Arabic
     #   audio_column: "audio"
-    #   speaker_column: "id"
     #   streaming: true
     
     # - name: "google/fleurs"
     #   subset: "ar_sa"                 # Saudi Arabic
     #   audio_column: "audio"
-    #   speaker_column: "id"
     #   streaming: true
 
     # ═══ Multilingual Expansion ═══
