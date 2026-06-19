@@ -59,6 +59,15 @@ def decode_hf_audio(sample: dict, audio_column: str, target_sr: int = 16000) -> 
     """
     audio_data = sample[audio_column]
     
+    # Handle new HF datasets AudioDecoder object
+    if hasattr(audio_data, 'decode') and callable(audio_data.decode):
+        try:
+            audio_data = audio_data.decode()
+        except Exception:
+            pass
+    elif hasattr(audio_data, 'array'):
+        audio_data = {'array': audio_data.array, 'sampling_rate': getattr(audio_data, 'sampling_rate', target_sr)}
+        
     if isinstance(audio_data, dict) and 'array' in audio_data:
         waveform = torch.tensor(audio_data['array'], dtype=torch.float32)
         sr = audio_data.get('sampling_rate', target_sr)
