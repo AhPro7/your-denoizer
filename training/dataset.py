@@ -158,7 +158,7 @@ class HFSpeechSource:
         self._dataset = None
         self._loaded = False
         self._buffer: List[dict] = []
-        self._buffer_size = 5000
+        self._buffer_size = 500
     
     def _load(self):
         if self._loaded:
@@ -245,7 +245,7 @@ class HFNoiseSource:
         self._dataset = None
         self._loaded = False
         self._buffer: List[dict] = []
-        self._buffer_size = 2000
+        self._buffer_size = 500
     
     def _load(self):
         if self._loaded:
