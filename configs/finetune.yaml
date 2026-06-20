@@ -125,6 +125,8 @@ data:
       audio_column: "audio"
       category: "environment"
       streaming: true
+      split: "validation"     # this dataset only has validation/test, no train — validation is the larger split (40,966 vs 10,231)
+
 
   # ===========================================================
   # Local Speech & Noise (if downloaded to disk)
