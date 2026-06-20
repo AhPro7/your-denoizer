@@ -29,8 +29,8 @@ data:
   # ---- Mixing Parameters ----
   snr_range: [3, 20]        # Noise is ALWAYS quieter than speech (positive SNR)
   noise_prob: 0.8           # 80% of samples get environmental noise
-  rir_prob: 0.5             # 30% of samples get room reverb
-  speed_perturb_prob: 0.5   # 30% of samples get speed/pitch change
+  rir_prob: 0.0             # 0% — no local RIR dataset configured (enable when you add one)
+  speed_perturb_prob: 0.3   # 30% of samples get speed/pitch change
 
   # ===========================================================
   # HuggingFace Speech Datasets

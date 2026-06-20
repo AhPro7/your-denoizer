@@ -244,11 +244,14 @@ class HFNoiseSource:
         
         self._dataset = None
         self._loaded = False
+        self._load_failed = False
         self._iterator = None
     
     def _load(self):
         if self._loaded:
             return
+        if self._load_failed:
+            raise RuntimeError(f"[HFNoise] {self.dataset_name} previously failed to load")
         from datasets import load_dataset, Audio
         
         print(f"[HFNoise] Loading {self.dataset_name} (category={self.category})...")
@@ -257,7 +260,12 @@ class HFNoiseSource:
         if self.subset:
             kwargs['name'] = self.subset
         
-        self._dataset = load_dataset(self.dataset_name, **kwargs)
+        try:
+            self._dataset = load_dataset(self.dataset_name, **kwargs)
+        except Exception as e:
+            self._load_failed = True
+            print(f"[HFNoise] ❌ FAILED to load {self.dataset_name}: {e}")
+            raise
         
         try:
             self._dataset = self._dataset.cast_column(
@@ -268,10 +276,14 @@ class HFNoiseSource:
         if not self.streaming:
             if self.max_samples and len(self._dataset) > self.max_samples:
                 self._dataset = self._dataset.select(range(self.max_samples))
-            print(f"[HFNoise] Loaded {len(self._dataset)} noise samples")
+            print(f"[HFNoise] ✅ Loaded {len(self._dataset)} noise samples")
         else:
-            print(f"[HFNoise] Streaming — buffering on first access")
+            print(f"[HFNoise] ✅ Streaming ready")
         self._loaded = True
+    
+    def is_available(self) -> bool:
+        """Check if this source loaded successfully."""
+        return self._loaded and not self._load_failed
     
     def get_random_noise(self) -> torch.Tensor:
         self._load()
@@ -530,24 +542,41 @@ class SpeechEnhancementDataset(Dataset):
             return src.get_random_audio()
     
     def _get_noise(self) -> Optional[torch.Tensor]:
-        """Get random noise from HF or local sources."""
+        """Get random noise from HF or local sources.
+        
+        Tries ALL available sources in random order before giving up.
+        Logs failures so we can diagnose silent noise dropout.
+        """
         sources = []
         for ns in self.hf_noise:
-            sources.append(('hf', ns))
+            if not ns._load_failed:
+                sources.append(('hf', ns))
         if self.local_noise and self.local_noise.has_noise():
             sources.append(('local', self.local_noise))
         
         if not sources:
             return None
         
-        src_type, src = random.choice(sources)
-        try:
-            if src_type == 'hf':
-                return src.get_random_noise()
-            else:
-                return src.get_random_noise()
-        except Exception:
-            return None
+        # Shuffle and try ALL sources — don't give up after one failure
+        random.shuffle(sources)
+        last_error = None
+        for src_type, src in sources:
+            try:
+                if src_type == 'hf':
+                    return src.get_random_noise()
+                else:
+                    return src.get_random_noise()
+            except Exception as e:
+                last_error = e
+                continue
+        
+        # Only reaches here if ALL sources failed
+        if not hasattr(self, '_noise_fail_count'):
+            self._noise_fail_count = 0
+        self._noise_fail_count += 1
+        if self._noise_fail_count <= 10 or self._noise_fail_count % 500 == 0:
+            print(f"[Dataset] ⚠️ ALL noise sources failed (count={self._noise_fail_count}): {last_error}")
+        return None
     
     def _get_rir(self) -> Optional[torch.Tensor]:
         if self.local_noise and self.local_noise.has_rir():
@@ -691,10 +720,10 @@ def create_dataloader(config: dict) -> DataLoader:
             sample_rate=sample_rate,
         ))
     
-    # Build HF Noise Sources
+    # Build HF Noise Sources (eagerly load to surface failures immediately)
     hf_noise = []
     for ns_cfg in data_cfg.get('hf_noise', []):
-        hf_noise.append(HFNoiseSource(
+        ns = HFNoiseSource(
             dataset_name=ns_cfg['name'],
             subset=ns_cfg.get('subset'),
             split=ns_cfg.get('split', 'train'),
@@ -704,7 +733,21 @@ def create_dataloader(config: dict) -> DataLoader:
             max_samples=ns_cfg.get('max_samples'),
             sample_rate=sample_rate,
             category=ns_cfg.get('category', 'noise'),
-        ))
+        )
+        # Eagerly load — if it fails, mark it and continue with remaining sources
+        try:
+            ns._load()
+            # Smoke-test: try decoding one sample to catch AudioDecoder issues early
+            test_wav = ns.get_random_noise()
+            print(f"[HFNoise] ✅ Smoke test passed for {ns.dataset_name}: shape={tuple(test_wav.shape)}")
+            hf_noise.append(ns)
+        except Exception as e:
+            print(f"[HFNoise] ❌ Skipping {ns_cfg['name']}: {e}")
+    
+    if not hf_noise:
+        print("[HFNoise] ⚠️ WARNING: No noise sources loaded! Model will train on clean-only pairs.")
+    else:
+        print(f"[HFNoise] {len(hf_noise)}/{len(data_cfg.get('hf_noise', []))} noise sources active")
     
     # Build Local Speech Index
     local_speech = None
