@@ -108,7 +108,7 @@ data:
   
   hf_noise:
     # MUSAN: background noise, babble, music, machinery
-    - name: "flozi00/MUSAN-Noise"
+    - name: "FluidInference/musan"
       audio_column: "audio"
       category: "noise"
       streaming: true
@@ -121,7 +121,7 @@ data:
       streaming: false
     
     # FSD50K: 50K Freesound clips — huge variety
-    - name: "google/fsd50k"
+    - name: "Fhrozen/FSD50k"
       audio_column: "audio"
       category: "environment"
       streaming: true
