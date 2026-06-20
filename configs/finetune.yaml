@@ -22,7 +22,7 @@ data:
   sample_rate: 16000
   segment_length: 64000     # 4 seconds at 16kHz
   batch_size: 16            # T4: 16, A100: 32, CPU: 4
-  num_workers: 2            # Colab: 2, local GPU: 4-8
+  num_workers: 0            # Colab: 0 to prevent shard starvation in HF streaming
   samples_per_epoch: 20000  # Virtual epoch size
   val_samples: 2000         # Validation samples per epoch
   

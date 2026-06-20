@@ -56,17 +56,16 @@ def decode_hf_audio(sample: dict, audio_column: str, target_sr: int = 16000) -> 
         - {'array': np.ndarray, 'sampling_rate': int}  (decoded)
         - {'path': str, 'bytes': bytes}                 (raw)
         - str (path)
-    """
     audio_data = sample[audio_column]
     
-    # Handle new HF datasets AudioDecoder object
-    if hasattr(audio_data, 'decode') and callable(audio_data.decode):
-        try:
-            audio_data = audio_data.decode()
-        except Exception:
-            pass
-    elif hasattr(audio_data, 'array'):
-        audio_data = {'array': audio_data.array, 'sampling_rate': getattr(audio_data, 'sampling_rate', target_sr)}
+    # datasets>=4.x: torchcodec-backed AudioDecoder. No `.decode()` — real API is get_all_samples().
+    if hasattr(audio_data, 'get_all_samples') and callable(audio_data.get_all_samples):
+        samples = audio_data.get_all_samples()
+        waveform = samples.data.mean(dim=0)   # (channels, samples) -> (samples,)
+        sr = samples.sample_rate
+        if sr != target_sr:
+            waveform = torchaudio.transforms.Resample(sr, target_sr)(waveform.unsqueeze(0)).squeeze(0)
+        return waveform.float()
         
     if isinstance(audio_data, dict) and 'array' in audio_data:
         waveform = torch.tensor(audio_data['array'], dtype=torch.float32)
@@ -166,8 +165,7 @@ class HFSpeechSource:
         
         self._dataset = None
         self._loaded = False
-        self._buffer: List[dict] = []
-        self._buffer_size = 50
+        self._iterator = None
     
     def _load(self):
         if self._loaded:
@@ -200,25 +198,17 @@ class HFSpeechSource:
         
         self._loaded = True
     
-    def _fill_buffer(self):
-        if self._buffer:
-            return
-        self._load()
-        print(f"[HFSpeech] Filling buffer ({self._buffer_size} samples)...")
-        count = 0
-        for sample in self._dataset:
-            self._buffer.append(sample)
-            count += 1
-            if count >= self._buffer_size:
-                break
-        print(f"[HFSpeech] Buffered {len(self._buffer)} samples")
-    
     def get_random_audio(self) -> torch.Tensor:
         """Get a random audio waveform."""
         self._load()
         if self.streaming:
-            self._fill_buffer()
-            sample = random.choice(self._buffer)
+            if self._iterator is None:
+                self._iterator = iter(self._dataset)
+            try:
+                sample = next(self._iterator)
+            except StopIteration:
+                self._iterator = iter(self._dataset)
+                sample = next(self._iterator)
         else:
             idx = random.randint(0, len(self._dataset) - 1)
             sample = self._dataset[idx]
@@ -253,8 +243,7 @@ class HFNoiseSource:
         
         self._dataset = None
         self._loaded = False
-        self._buffer: List[dict] = []
-        self._buffer_size = 50
+        self._iterator = None
     
     def _load(self):
         if self._loaded:
@@ -283,24 +272,16 @@ class HFNoiseSource:
             print(f"[HFNoise] Streaming — buffering on first access")
         self._loaded = True
     
-    def _fill_buffer(self):
-        if self._buffer:
-            return
-        self._load()
-        print(f"[HFNoise] Filling buffer ({self._buffer_size})...")
-        count = 0
-        for sample in self._dataset:
-            self._buffer.append(sample)
-            count += 1
-            if count >= self._buffer_size:
-                break
-        print(f"[HFNoise] Buffered {len(self._buffer)} noise samples")
-    
     def get_random_noise(self) -> torch.Tensor:
         self._load()
         if self.streaming:
-            self._fill_buffer()
-            sample = random.choice(self._buffer)
+            if self._iterator is None:
+                self._iterator = iter(self._dataset)
+            try:
+                sample = next(self._iterator)
+            except StopIteration:
+                self._iterator = iter(self._dataset)
+                sample = next(self._iterator)
         else:
             idx = random.randint(0, len(self._dataset) - 1)
             sample = self._dataset[idx]
