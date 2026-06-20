@@ -56,6 +56,7 @@ def decode_hf_audio(sample: dict, audio_column: str, target_sr: int = 16000) -> 
         - {'array': np.ndarray, 'sampling_rate': int}  (decoded)
         - {'path': str, 'bytes': bytes}                 (raw)
         - str (path)
+    """
     audio_data = sample[audio_column]
     
     # datasets>=4.x: torchcodec-backed AudioDecoder. No `.decode()` — real API is get_all_samples().
